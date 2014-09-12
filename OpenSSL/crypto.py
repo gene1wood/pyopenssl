@@ -24,6 +24,10 @@ FILETYPE_TEXT = 2 ** 16 - 1
 TYPE_RSA = _lib.EVP_PKEY_RSA
 TYPE_DSA = _lib.EVP_PKEY_DSA
 
+FORMAT_TRADITIONAL = 1
+FORMAT_RSA = 2
+FORMAT_PKCS8 = 3
+FORMAT_PKCS8_NID = 4
 
 class Error(Exception):
     """
@@ -1415,7 +1419,8 @@ def dump_certificate(type, cert):
 
 
 
-def dump_privatekey(type, pkey, cipher=None, passphrase=None):
+def dump_privatekey(type, pkey, cipher=None, passphrase=None,
+                    format=FORMAT_TRADITIONAL):
     """
     Dump a private key to a buffer
 
@@ -1427,6 +1432,7 @@ def dump_privatekey(type, pkey, cipher=None, passphrase=None):
     :param passphrase: (optional) if encrypted PEM format, this can be either
                        the passphrase to use, or a callback for providing the
                        passphrase.
+    :param format: (optional) The private key format
     :return: The buffer with the dumped key in
     :rtype: :py:data:`str`
     """
@@ -1445,9 +1451,34 @@ def dump_privatekey(type, pkey, cipher=None, passphrase=None):
 
     helper = _PassphraseHelper(type, passphrase)
     if type == FILETYPE_PEM:
-        result_code = _lib.PEM_write_bio_PrivateKey(
-            bio, pkey._pkey, cipher_obj, _ffi.NULL, 0,
-            helper.callback, helper.callback_args)
+        if format == FORMAT_TRADITIONAL:
+            result_code = _lib.PEM_write_bio_PrivateKey(
+                bio, pkey._pkey, cipher_obj, _ffi.NULL, 0,
+                helper.callback, helper.callback_args)
+        elif format == FORMAT_RSA:
+            rsa = _lib.EVP_PKEY_get1_RSA(pkey._pkey)
+            result_code = _lib.PEM_write_bio_RSAPrivateKey(
+                bio, rsa, cipher_obj, _ffi.NULL, 0,
+                helper.callback, helper.callback_args)
+        elif format == FORMAT_PKCS8:
+            result_code = _lib.PEM_write_bio_PKCS8PrivateKey(
+                bio, pkey._pkey, cipher_obj, _ffi.NULL, 0,
+                helper.callback, helper.callback_args)
+        # elif format == FORMAT_PKCS8_NID:
+        #     name = "something"
+        #     # PEM_write_bio_PKCS8PrivateKey_nid() and PEM_write_PKCS8PrivateKey_nid() also
+        #     # write out a private key as a PKCS#8 EncryptedPrivateKeyInfo however it uses
+        #     # PKCS#5 v1.5 or PKCS#12 encryption algorithms instead. The algorithm to use is
+        #     # specified in the nid parameter and should be the NID of the corresponding
+        #     # OBJECT IDENTIFIER (see NOTES section).
+        #     nid = _lib.OBJ_txt2nid(_byte_string(name))
+        #     result_code = _lib.PEM_write_bio_PKCS8PrivateKey_nid(
+        #         bio, pkey._pkey, nid, _ffi.NULL, 0,
+        #         helper.callback, helper.callback_args)
+        else:
+            raise ValueError(
+                "format argument must be FORMAT_TRADITIONAL, FORMAT_RSA, "
+                "FORMAT_PKCS8 or FORMAT_PKCS8_NID")
         helper.raise_if_problem()
     elif type == FILETYPE_ASN1:
         result_code = _lib.i2d_PrivateKey_bio(bio, pkey._pkey)

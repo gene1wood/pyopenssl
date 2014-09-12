@@ -108,6 +108,14 @@
     File type constants.
 
 
+.. py:data:: FORMAT_TRADITIONAL
+             FORMAT_RSA
+             FORMAT_PKCS8
+             FORMAT_PKCS8_NID
+
+    PEM format constants.
+
+
 .. py:data:: TYPE_RSA
              TYPE_DSA
 
@@ -153,11 +161,12 @@
     type *type*.
 
 
-.. py:function:: dump_privatekey(type, pkey[, cipher, passphrase])
+.. py:function:: dump_privatekey(type, pkey[, cipher, passphrase, format])
 
     Dump the private key *pkey* into a buffer string encoded with the type
     *type*, optionally (if *type* is :py:const:`FILETYPE_PEM`) encrypting it
-    using *cipher* and *passphrase*.
+    using *cipher* and *passphrase* and outputting it in *format*. The default
+    *format* is :py:const:`FORMAT_TRADITIONAL`
 
     *passphrase* must be either a string or a callback for providing the
     pass phrase.
